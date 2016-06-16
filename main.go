@@ -1,60 +1,33 @@
 package main
 
-// Tests whether io blocking will stall the process
+// Test json decoder: see if it can handle json logs
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-	"os/signal"
-	"runtime"
-	"syscall"
-	"time"
-
-	"golang.org/x/net/context"
+	"strings"
 )
 
 func main() {
-	gomaxprocs := runtime.GOMAXPROCS(0)
-	blockingCount := gomaxprocs * 2
-	fmt.Printf("GOMAXPROCS=%d running %d blocking goroutines\n", gomaxprocs, blockingCount)
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	go handleSignals(cancel, os.Interrupt, os.Kill)
-	for i := 0; i < blockingCount; i++ {
-		go work(i)
+	const jsonStream = `
+	{"Name": "Ed", "Text": "Knock knock."}
+	{"Name": "Sam", "Text": "Who's there?"}
+	{"Name": "Ed", "Text": "Go fmt."}
+	{"Name": "Sam", "Text": "Go fmt who?"}
+	{"Name": "Ed", "Text": "Go fmt yourself!"}
+`
+	type Message struct {
+		Name, Text string
 	}
-	<-ctx.Done()
-}
-
-func work(i int) {
-	fmt.Printf("Started %d\n", i)
-	name := fmt.Sprintf("./pipe%d", i)
-	os.Remove(name)
-	err := syscall.Mkfifo(name, 0777)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Calling mkfifo: %s\n", err)
+	dec := json.NewDecoder(strings.NewReader(jsonStream))
+	var m Message
+	for dec.More() {
+		// decode an array value (Message)
+		err := dec.Decode(&m)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error decoding: %s", err)
+			continue
+		}
+		fmt.Printf("%v: %v\n", m.Name, m.Text)
 	}
-	file, err := os.OpenFile(name, os.O_WRONLY, 0777)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening file: %s\n", err)
-	}
-	defer file.Close()
-
-	n, err := fmt.Fprintf(file, "Hello world!\n")
-	if err != nil {
-		fmt.Printf("Wrote %d, err: %s\n", n, err)
-	} else {
-		fmt.Printf("Wrote %d\n", n)
-	}
-}
-
-func handleSignals(cancel context.CancelFunc, signals ...os.Signal) {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, signals...)
-
-	s := <-signalChan
-	fmt.Printf("Got %s, shutting down...", s)
-	cancel()
-
-	time.Sleep(5 * time.Second)
-	os.Exit(0)
 }
