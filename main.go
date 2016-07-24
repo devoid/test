@@ -1,33 +1,13 @@
 package main
 
-// Test json decoder: see if it can handle json logs
-import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
-)
+import "fmt"
 
 func main() {
-	const jsonStream = `
-	{"Name": "Ed", "Text": "Knock knock."}
-	{"Name": "Sam", "Text": "Who's there?"}
-	{"Name": "Ed", "Text": "Go fmt."}
-	{"Name": "Sam", "Text": "Go fmt who?"}
-	{"Name": "Ed", "Text": "Go fmt yourself!"}
-`
-	type Message struct {
-		Name, Text string
+	msg := []byte{
+		76, 101, 116, 32, 116, 104, 101, 32, 98, 101, 115,
+		116, 32, 115, 116, 97, 114, 116, 117, 112, 115, 32,
+		97, 112, 112, 108, 121, 32, 116, 111, 32, 121, 111,
+		117, 0,
 	}
-	dec := json.NewDecoder(strings.NewReader(jsonStream))
-	var m Message
-	for dec.More() {
-		// decode an array value (Message)
-		err := dec.Decode(&m)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error decoding: %s", err)
-			continue
-		}
-		fmt.Printf("%v: %v\n", m.Name, m.Text)
-	}
+	fmt.Println(string(msg))
 }
